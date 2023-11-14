@@ -1,4 +1,5 @@
 import unreal
+import asset_utils
 
 # Assume we are working within the Editor's context
 @unreal.uclass()
@@ -17,8 +18,8 @@ def create_master_material(name):
 
     matAssetPath = f"/Game/Materials/{name}"
     matInstAssetPath = f"/Game/Materials/{name}_Inst"
-    delete_asset_if_exists(matAssetPath)
-    delete_asset_if_exists(matInstAssetPath)
+    asset_utils.delete_asset_if_exists(matAssetPath)
+    asset_utils.delete_asset_if_exists(matInstAssetPath)
 
     mat = assetTools.create_asset(name, "/Game/Materials", unreal.Material, unreal.MaterialFactoryNew())
 
@@ -45,13 +46,6 @@ def create_master_material(name):
 
     assetLib.save_asset(matAssetPath)
     assetLib.save_asset(matInstAssetPath)
-
-# Delete Asset If Exists
-def delete_asset_if_exists(asset_path):
-    assetLib = unreal.EditorAssetLibrary
-
-    if assetLib.does_asset_exist(asset_path) and assetLib.delete_asset(asset_path):
-        print(f"Asset '{asset_path}' deleted.")
 
 # Main
 if __name__ == '__main__':

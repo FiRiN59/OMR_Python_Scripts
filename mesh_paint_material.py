@@ -29,7 +29,7 @@ def create_mesh_paint_material_material(name):
     orms = []
 
     # Node Postion Paramenters
-    NodePositionX = -3000
+    NodePositionX = -2500
     NodePositionY = -300
     NodeOffsetX = 200
     NodeOffsetY = 250
@@ -58,9 +58,11 @@ def create_mesh_paint_material_material(name):
             for index, name in enumerate(["BaseColor_{}".format(i + 1), "Normal_{}".format(i + 1), "ORM_{}".format(i + 1)])
         ]
 
-        # Sampler Types
+        # Assitional Parameters
+        NormalParam.set_editor_property("Texture", unreal.load_asset("/Script/Engine.Texture2D'/Engine/EngineMaterials/DefaultNormal.DefaultNormal'"))
         NormalParam.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
-        ORMParam.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+        ORMParam.set_editor_property("Texture", unreal.load_asset("/Script/Engine.Texture2D'/Engine/EngineMaterials/DefaultDiffuse_TC_Masks.DefaultDiffuse_TC_Masks'"))
+        ORMParam.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
 
         # Save in the arrays
         base_colors.append(BaseColorParam)
@@ -88,22 +90,12 @@ def create_mesh_paint_material_material(name):
         orm_g_lerps.append(orm_g_lerp)
         orm_b_lerps.append(orm_b_lerp)
 
-    # Base Color Connections
-    for i in range(5):
-        matLib.connect_material_expressions(base_colors[i], "", base_color_lerps[i], "B")
-
-    matLib.connect_material_expressions(base_colors[4], "", base_color_lerps[0], "A")
-    matLib.connect_material_expressions(OneMinusNode_Color, "", base_color_lerps[0], "Alpha")
-
-    matLib.connect_material_expressions(VertexColorNode_Color, "A", OneMinusNode_Color, "")
-    
-    for index, channel in enumerate(["R", "G", "B", "A"]):
-        matLib.connect_material_expressions(VertexColorNode_Color, channel, base_color_lerps[index + 1], "Alpha")
-
-    for i in range(4):
-        matLib.connect_material_expressions(base_color_lerps[i], "", base_color_lerps[i + 1], "A")
-
-    matLib.connect_material_property(base_color_lerps[4], "", unreal.MaterialProperty.MP_BASE_COLOR)
+    # Connections
+    setup_connections(unreal.MaterialProperty.MP_BASE_COLOR, VertexColorNode_Color, base_colors, base_color_lerps, OneMinusNode_Color)
+    setup_connections(unreal.MaterialProperty.MP_NORMAL, VertexColorNode_Normal, normals, normal_lerps, OneMinusNode_Normal)
+    setup_connections(unreal.MaterialProperty.MP_AMBIENT_OCCLUSION, VertexColorNode_R_Occlusion, orms, orm_r_lerps, OneMinusNode_R, "R")
+    setup_connections(unreal.MaterialProperty.MP_ROUGHNESS, VertexColorNode_G_Roughness, orms, orm_g_lerps, OneMinusNode_G, "G")
+    setup_connections(unreal.MaterialProperty.MP_METALLIC, VertexColorNode_B_Metallic, orms, orm_b_lerps, OneMinusNode_B, "B")
 
     # Material Instance
     matInstance = assetTools.create_asset(f"{name}_Inst", "/Game/Materials", unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
@@ -112,6 +104,8 @@ def create_mesh_paint_material_material(name):
     # Save Assets
     assetLib.save_asset(matAssetPath)
     assetLib.save_asset(matInstAssetPath)
+
+### Helper Functions ###
 
 def create_vertex_color_node(material, description, pos_x, pos_y):
     node = unreal.MaterialEditingLibrary.create_material_expression(material, unreal.MaterialExpressionVertexColor.static_class(), pos_x, pos_y)
@@ -131,6 +125,29 @@ def create_texture_parameter_node(material, name, pos_x, pos_y):
 def create_lerp_node(material, pos_x, pos_y):
     node = unreal.MaterialEditingLibrary.create_material_expression(material, unreal.MaterialExpressionLinearInterpolate.static_class(), pos_x, pos_y)
     return node
+
+def setup_connections(
+        material_property: unreal.MaterialProperty,
+        vertex_color: unreal.MaterialExpressionVertexColor, 
+        textures: [unreal.MaterialExpressionTextureSampleParameter2D],
+        lerps: [unreal.MaterialExpressionLinearInterpolate],
+        one_minus: unreal.MaterialExpressionOneMinus,
+        channel: str = ""):
+    for i in range(5):
+        unreal.MaterialEditingLibrary.connect_material_expressions(textures[i], channel, lerps[i], "B")
+
+    unreal.MaterialEditingLibrary.connect_material_expressions(textures[4], channel, lerps[0], "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(one_minus, "", lerps[0], "Alpha")
+
+    unreal.MaterialEditingLibrary.connect_material_expressions(vertex_color, "A", one_minus, "")
+    
+    for index, channel in enumerate(["R", "G", "B", "A"]):
+        unreal.MaterialEditingLibrary.connect_material_expressions(vertex_color, channel, lerps[index + 1], "Alpha")
+
+    for i in range(4):
+        unreal.MaterialEditingLibrary.connect_material_expressions(lerps[i], "", lerps[i + 1], "A")
+
+    unreal.MaterialEditingLibrary.connect_material_property(lerps[4], "", material_property)
 
 # Main
 if __name__ == '__main__':
